@@ -1,0 +1,70 @@
+module Explainer where
+
+import Daml.Script
+import DA.Assert
+import DA.Date
+import DA.Text as T
+import DA.Time
+import DA.Tuple
+import DA.List
+
+data Course = Course with
+  subject : Text
+  price : Decimal
+    deriving (Eq, Show)
+
+template Explainer with
+    name : Party
+    courses : [Course]
+  where
+    signatory name
+    
+    choice AddCourse : ContractId Explainer     
+      with
+        newCourse : Course
+       controller name
+        do
+          create Explainer with
+            courses = courses ++ [newCourse]
+            .. 
+    
+    choice RemoveCourse : ContractId Explainer
+      with
+        removeCourse : Course
+      controller name
+        do
+          let newCourses = delete removeCourse courses
+          create Explainer with
+            courses = newCourses
+            ..
+
+createContract = script do
+  bob <- allocateParty "Bob"
+  
+  let
+    maths = Course with
+      subject = "Maths"
+      price = 15.0
+
+  let
+    physics = Course with
+      subject = "physics"
+      price = 20.0
+
+
+  expCid <- submit bob do
+    createCmd Explainer with
+      name = bob
+      courses = [maths]
+
+  Some exp <- queryContractId bob expCid
+
+  expCid <- submit bob do
+    exerciseCmd expCid AddCourse with
+      newCourse = physics
+
+  submit bob do
+    exerciseCmd expCid RemoveCourse with
+      removeCourse = physics
+
+  
